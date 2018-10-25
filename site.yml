@@ -1,0 +1,72 @@
+- name: Configure application
+  hosts: all
+  become: true
+  become_method: sudo
+  vars:
+      repository_url: https://bitbucket.org/azneita/devops-challenge.git
+      repository_path: /webapps/devops
+
+  tasks:
+    - name: Install packages
+      apt: update_cache=yes name={{ item }} state=present
+      with_items:
+        - git
+        - python-pip
+        - nginx
+        - gunicorn
+
+    - name: Clone repository
+      git: repo='{{ repository_url }}' dest='{{ repository_path }}'
+
+    - name: Install requirements
+      pip: requirements='{{ repository_path }}/requirements.txt'
+ 
+    - name: Creating a service account
+      user: name=devops
+
+          
+    - name: Copy Upstart configuration
+#      template: src=hello-world.upstart.j2 dest=/etc/init/hello-world.conf
+      template: src=flask-app.upstart.j2 dest=/etc/systemd/system/flask-app.service
+
+    - name: Make sure our server is running
+      service: name=flask-app state=started enabled=yes
+
+    - name: Copy Nginx site
+      template: src=flask-app.nginx.j2 dest=/etc/nginx/sites-enabled/flask-app
+      notify:
+        - restart nginx
+
+    - name: Remove any default sites
+      file: path=/etc/nginx/sites-enabled/default state=absent
+      notify:
+        - restart nginx
+
+    - name: Enabling logrotation for our flask-app
+      template: src=flask-app dest=/etc/logrotate.d/
+
+    - name: Make sure nginx is running
+      service: name=nginx state=started
+          
+    - name: set /etc/localtime
+      file: src=/usr/share/zoneinfo/Etc/UTC dest=/etc/localtime state=link force=yes
+          
+    - name: set locale
+      command: /usr/sbin/update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+      
+    - name: Set timezone variables
+      copy: content='Etc/UTC'
+            dest=/etc/timezone
+            owner=root
+            group=root
+            mode=0644
+            backup=yes
+      notify:
+        - update timezone
+
+  handlers:
+    - name: update timezone
+      command: dpkg-reconfigure --frontend noninteractive tzdata
+          
+    - name: restart nginx
+      service: name=nginx state=restarted  

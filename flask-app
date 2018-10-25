@@ -1,0 +1,11 @@
+/var/log/nginx/*.log {
+    weekly
+    missingok
+    rotate 14
+    compress
+    notifempty
+    sharedscripts
+    postrotate
+        systemctl reload flask-app
+    endscript
+}

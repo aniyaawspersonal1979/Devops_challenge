@@ -1,0 +1,14 @@
+[Unit]
+Description= Flast application
+
+[Service]
+User=devops
+ExecStart=/webapps/devops/app.py
+TimeoutSec=30
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=350
+StartLimitBurst=10
+
+[Install]
+WantedBy=multi-user.target
